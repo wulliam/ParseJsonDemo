@@ -31,7 +31,12 @@
     // Update the user interface for the detail item.
 
     if (self.detailItem) {
-        self.detailDescriptionLabel.text = [self.detailItem description];
+        self.nameLabel.text = [self.detailItem name];
+        self.statusLabel.text = [self.detailItem status];
+        self.userLabel.text = [self.detailItem use];
+        self.countryCodeLabel.text = [self.detailItem.location country_code];
+        self.countryLabel.text = [self.detailItem.location country];
+        NSLog(@"detail view %@", self.detailItem);
     }
 }
 

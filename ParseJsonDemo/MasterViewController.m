@@ -9,27 +9,71 @@
 #import "MasterViewController.h"
 
 #import "DetailViewController.h"
+#import "ClientApi.h"
+#import "HUD.h"
+#import "Loan.h"
 
 @interface MasterViewController () {
-    NSMutableArray *_objects;
+    NSMutableArray<Loan>* _loans;
 }
 @end
 
 @implementation MasterViewController
+ClientApi* clientApi;
 
 - (void)awakeFromNib
 {
     [super awakeFromNib];
 }
 
-- (void)viewDidLoad
+-(void)viewDidLoad
 {
     [super viewDidLoad];
+}
+
+- (void)viewDidAppear:(BOOL)animated
+{
 	// Do any additional setup after loading the view, typically from a nib.
     self.navigationItem.leftBarButtonItem = self.editButtonItem;
 
-    UIBarButtonItem *addButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(insertNewObject:)];
-    self.navigationItem.rightBarButtonItem = addButton;
+    UIBarButtonItem *reloadButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(reloadLoans:)];
+    self.navigationItem.rightBarButtonItem = reloadButton;
+    
+    //show loader view
+    [HUD showUIBlockingIndicatorWithText:@"Fetching JSON"];
+    clientApi = [ClientApi getInstance];
+    
+    _loans = [NSMutableArray arrayWithArray:clientApi.fetchFeed.loans];
+    
+    //fetch the feed
+//    while (_loans == nil || _loans.count == 0)
+//    {
+//        [NSThread sleepForTimeInterval:1.0f];
+//        [self reloadLoansFormApi];
+//        NSLog(@"sleep ");
+//    }
+    [self performSelector:@selector(checkLoad) withObject:self afterDelay:1.0f];
+    
+    
+    //json fetched
+    NSLog(@"loans: %@", _loans);
+    
+    
+}
+
+-(void) checkLoad
+{
+    [self reloadLoansFormApi];
+    if (_loans == nil || _loans.count == 0)
+    {
+        [self performSelector:@selector(checkLoad) withObject:self afterDelay:1.0f];
+    } else
+    {
+        NSLog(@"size %d", _loans.count);
+        [self.tableView reloadData];
+        //hide the loader view
+        [HUD hideUIBlockingIndicator];
+    }
 }
 
 - (void)didReceiveMemoryWarning
@@ -38,14 +82,24 @@
     // Dispose of any resources that can be recreated.
 }
 
-- (void)insertNewObject:(id)sender
+- (void)reloadLoansFormApi
 {
-    if (!_objects) {
-        _objects = [[NSMutableArray alloc] init];
-    }
-    [_objects insertObject:[NSDate date] atIndex:0];
-    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:0 inSection:0];
-    [self.tableView insertRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
+    _loans = [NSMutableArray arrayWithArray:clientApi.kivaFeed.loans];
+}
+
+- (void)reloadLoans:(id)sender
+{
+//    if (!_objects) {
+//        _objects = [[NSMutableArray alloc] init];
+//    }
+//    [_objects insertObject:[NSDate date] atIndex:0];
+//    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:0 inSection:0];
+//    [self.tableView insertRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
+//
+    [HUD showUIBlockingIndicatorWithText:@"Fetching JSON"];
+    [self reloadLoansFormApi];
+    [self.tableView reloadData];
+    [HUD hideUIBlockingIndicator];
 }
 
 #pragma mark - Table View
@@ -57,15 +111,20 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return _objects.count;
+    //return _objects.count;
+    return _loans.count;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"Cell" forIndexPath:indexPath];
 
-    NSDate *object = _objects[indexPath.row];
-    cell.textLabel.text = [object description];
+    //NSDate *object = _objects[indexPath.row];
+    //cell.textLabel.text = [object description];
+    Loan* loan = _loans[indexPath.row];
+    cell.textLabel.text = [NSString stringWithFormat:@"%d %@ from %@", indexPath.row,
+                           loan.name, loan.location.country
+                           ];
     return cell;
 }
 
@@ -78,7 +137,7 @@
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath
 {
     if (editingStyle == UITableViewCellEditingStyleDelete) {
-        [_objects removeObjectAtIndex:indexPath.row];
+        [_loans removeObjectAtIndex:indexPath.row];
         [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
     } else if (editingStyle == UITableViewCellEditingStyleInsert) {
         // Create a new instance of the appropriate class, insert it into the array, and add a new row to the table view.
@@ -105,7 +164,8 @@
 {
     if ([[segue identifier] isEqualToString:@"showDetail"]) {
         NSIndexPath *indexPath = [self.tableView indexPathForSelectedRow];
-        NSDate *object = _objects[indexPath.row];
+        Loan *object = _loans[indexPath.row];
+        NSLog(@"Loan at %d, %@", indexPath.row, object);
         [[segue destinationViewController] setDetailItem:object];
     }
 }
